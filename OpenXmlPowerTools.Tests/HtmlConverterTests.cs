@@ -235,11 +235,14 @@ namespace OxPt
                             if (imageFormat == null)
                                 return null;
 
-                            string imageFileName = imageDirectoryName + "/image" +
-                                imageCounter.ToString() + "." + extension;
+                            string imageFileName = imageDirectoryName + "/image" + imageCounter + "." + extension;
                             try
                             {
-                                imageInfo.Bitmap.Save(imageFileName, imageFormat);
+                                using (var fileStream = File.Create(imageFileName))
+                                using (var imageStream = new MemoryStream(imageInfo.Bitmap))
+                                {
+                                    imageStream.CopyTo(fileStream);
+                                }
                             }
                             catch (System.Runtime.InteropServices.ExternalException)
                             {
@@ -328,11 +331,14 @@ namespace OxPt
                             if (imageFormat == null)
                                 return null;
 
-                            string imageFileName = imageDirectoryName + "/image" +
-                                imageCounter.ToString() + "." + extension;
+                            string imageFileName = imageDirectoryName + "/image" + imageCounter + "." + extension;
                             try
                             {
-                                imageInfo.Bitmap.Save(imageFileName, imageFormat);
+                                using (var fileStream = File.Create(imageFileName))
+                                using (var imageStream = new MemoryStream(imageInfo.Bitmap))
+                                {
+                                    imageStream.CopyTo(fileStream);
+                                }
                             }
                             catch (System.Runtime.InteropServices.ExternalException)
                             {

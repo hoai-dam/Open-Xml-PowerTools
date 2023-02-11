@@ -13,7 +13,6 @@ http://www.microsoft.com/resources/sharedsource/licensingbasics/publiclicense.ms
 ***************************************************************************/
 
 using System;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -21,6 +20,8 @@ using System.Text;
 using System.Xml.Linq;
 using DocumentFormat.OpenXml.Packaging;
 using OpenXmlPowerTools;
+
+// using System.Drawing.Imaging;
 
 class WmlToHtmlConverterHelper
 {
@@ -86,49 +87,21 @@ class WmlToHtmlConverterHelper
                             localDirInfo.Create();
                         ++imageCounter;
                         string extension = imageInfo.ContentType.Split('/')[1].ToLower();
-                        ImageFormat imageFormat = null;
-                        if (extension == "png")
-                            imageFormat = ImageFormat.Png;
-                        else if (extension == "gif")
-                            imageFormat = ImageFormat.Gif;
-                        else if (extension == "bmp")
-                            imageFormat = ImageFormat.Bmp;
-                        else if (extension == "jpeg")
-                            imageFormat = ImageFormat.Jpeg;
-                        else if (extension == "tiff")
-                        {
-                            // Convert tiff to gif.
-                            extension = "gif";
-                            imageFormat = ImageFormat.Gif;
-                        }
-                        else if (extension == "x-wmf")
-                        {
-                            extension = "wmf";
-                            imageFormat = ImageFormat.Wmf;
-                        }
-
-                        // If the image format isn't one that we expect, ignore it,
-                        // and don't return markup for the link.
-                        if (imageFormat == null)
-                            return null;
-
-                        string imageFileName = imageDirectoryName + "/image" + imageCounter.ToString() + "." + extension;
+                        string imageFileName = imageDirectoryName + "/image" + imageCounter + "." + extension;
                         try
                         {
                             using (var fileStream = File.Create(imageFileName))
-                            using (var imageStream = imageInfo.Bitmap)
+                            using (var imageStream = new MemoryStream(imageInfo.Bitmap))
                             {
-                                imageStream.Seek(0, SeekOrigin.Begin);
                                 imageStream.CopyTo(fileStream);
                             }
                         }
-                        catch (System.Runtime.InteropServices.ExternalException)
+                        catch (ExternalException)
                         {
                             return null;
                         }
-                        string imageSource = localDirInfo.Name + "/image" +
-                            imageCounter.ToString() + "." + extension;
-
+                        
+                        string imageSource = localDirInfo.Name + "/image" + imageCounter + "." + extension;
                         XElement img = new XElement(Xhtml.img,
                             new XAttribute(NoNamespace.src, imageSource),
                             imageInfo.ImgStyleAttribute,

@@ -121,7 +121,7 @@ namespace OpenXmlPowerTools
     [SuppressMessage("ReSharper", "UnusedMember.Global")]
     public class ImageInfo
     {
-        public Stream Bitmap;
+        public byte[] Bitmap;
         public XAttribute ImgStyleAttribute;
         public string ContentType;
         public XElement DrawingElement;
@@ -3079,48 +3079,54 @@ namespace OpenXmlPowerTools
             if (!ImageContentTypes.Contains(contentType))
                 return null;
 
-            Stream partStream = imagePart.GetStream();
-                
-            if (extentCx != null && extentCy != null)
+            using (Stream partStream = imagePart.GetStream())
+            using (MemoryStream memoryStream = new MemoryStream())
             {
-                var imageInfo = new ImageInfo()
+                partStream.Seek(0, SeekOrigin.Begin);
+                partStream.CopyTo(memoryStream);
+                byte[] bitmap = memoryStream.ToArray();
+                if (extentCx != null && extentCy != null)
                 {
-                    Bitmap = partStream,
-                    ImgStyleAttribute = new XAttribute("style",
-                        string.Format(NumberFormatInfo.InvariantInfo,
-                            "width: {0}in; height: {1}in",
-                            (float)extentCx / (float)ImageInfo.EmusPerInch,
-                            (float)extentCy / (float)ImageInfo.EmusPerInch)),
+                    var imageInfo = new ImageInfo()
+                    {
+                        Bitmap = bitmap,
+                        ImgStyleAttribute = new XAttribute("style",
+                            string.Format(NumberFormatInfo.InvariantInfo,
+                                "width: {0}in; height: {1}in",
+                                (float)extentCx / (float)ImageInfo.EmusPerInch,
+                                (float)extentCy / (float)ImageInfo.EmusPerInch)),
+                        ContentType = contentType,
+                        DrawingElement = element,
+                        AltText = altText,
+                    };
+                    var imgElement2 = imageHandler(imageInfo);
+                    if (hyperlinkUri != null)
+                    {
+                        return new XElement(XhtmlNoNamespace.a,
+                            new XAttribute(XhtmlNoNamespace.href, hyperlinkUri),
+                            imgElement2);
+                    }
+
+                    return imgElement2;
+                }
+
+                var imageInfo2 = new ImageInfo()
+                {
+                    Bitmap = bitmap,
                     ContentType = contentType,
                     DrawingElement = element,
                     AltText = altText,
                 };
-                var imgElement2 = imageHandler(imageInfo);
+                var imgElement = imageHandler(imageInfo2);
                 if (hyperlinkUri != null)
                 {
                     return new XElement(XhtmlNoNamespace.a,
                         new XAttribute(XhtmlNoNamespace.href, hyperlinkUri),
-                        imgElement2);
+                        imgElement);
                 }
-                return imgElement2;
-            }
 
-            var imageInfo2 = new ImageInfo()
-            {
-                Bitmap = partStream,
-                ContentType = contentType,
-                DrawingElement = element,
-                AltText = altText,
-            };
-            var imgElement = imageHandler(imageInfo2);
-            if (hyperlinkUri != null)
-            {
-                return new XElement(XhtmlNoNamespace.a,
-                    new XAttribute(XhtmlNoNamespace.href, hyperlinkUri),
-                    imgElement);
+                return imgElement;
             }
-            return imgElement;
-            
         }
 
         private static XElement ProcessPictureOrObject(WordprocessingDocument wordDoc,
@@ -3141,27 +3147,36 @@ namespace OpenXmlPowerTools
                 if (!ImageContentTypes.Contains(contentType))
                     return null;
 
-                var partStream = imagePart.GetStream();
-                var imageInfo = new ImageInfo()
+                using(var partStream = imagePart.GetStream())
+                using (MemoryStream memoryStream = new MemoryStream())
                 {
-                    Bitmap = partStream,
-                    ContentType = contentType,
-                    DrawingElement = element
-                };
 
-                var style = (string)element.Elements(VML.shape).Attributes("style").FirstOrDefault();
-                if (style == null) return imageHandler(imageInfo);
+                    partStream.Seek(0, SeekOrigin.Begin);
+                    partStream.CopyTo(memoryStream);
+                    byte[] bitmap = memoryStream.ToArray();
 
-                var tokens = style.Split(';');
-                var widthInPoints = WidthInPoints(tokens);
-                var heightInPoints = HeightInPoints(tokens);
-                if (widthInPoints != null && heightInPoints != null)
-                {
-                    imageInfo.ImgStyleAttribute = new XAttribute("style",
-                        string.Format(NumberFormatInfo.InvariantInfo,
-                            "width: {0}pt; height: {1}pt", widthInPoints, heightInPoints));
+                    var imageInfo = new ImageInfo()
+                    {
+                        Bitmap = bitmap,
+                        ContentType = contentType,
+                        DrawingElement = element
+                    };
+
+                    var style = (string)element.Elements(VML.shape).Attributes("style").FirstOrDefault();
+                    if (style == null) return imageHandler(imageInfo);
+
+                    var tokens = style.Split(';');
+                    var widthInPoints = WidthInPoints(tokens);
+                    var heightInPoints = HeightInPoints(tokens);
+                    if (widthInPoints != null && heightInPoints != null)
+                    {
+                        imageInfo.ImgStyleAttribute = new XAttribute("style",
+                            string.Format(NumberFormatInfo.InvariantInfo,
+                                "width: {0}pt; height: {1}pt", widthInPoints, heightInPoints));
+                    }
+
+                    return imageHandler(imageInfo);
                 }
-                return imageHandler(imageInfo);
             }
             catch (ArgumentOutOfRangeException)
             {
