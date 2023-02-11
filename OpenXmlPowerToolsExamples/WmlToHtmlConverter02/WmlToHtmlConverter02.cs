@@ -35,7 +35,7 @@ class WmlToHtmlConverterHelper
          * This example loads each document into a byte array, then into a memory stream, so that the document can be opened for writing without
          * modifying the source document.
          */
-        foreach (var file in Directory.GetFiles("../../", "*.docx"))
+        foreach (var file in Directory.GetFiles("../../../", "*.docx"))
         {
             ConvertToHtml(file, tempDi.FullName);
         }
@@ -113,11 +113,13 @@ class WmlToHtmlConverterHelper
                         string base64 = null;
                         try
                         {
-                            using (MemoryStream ms = new MemoryStream())
+                            using (var imageStream = imageInfo.Bitmap)
+                            using (var ms = new MemoryStream())
                             {
-                                imageInfo.Bitmap.Save(ms, imageFormat);
-                                var ba = ms.ToArray();
-                                base64 = System.Convert.ToBase64String(ba);
+                                imageStream.Seek(0, SeekOrigin.Begin);
+                                imageStream.CopyTo(ms);
+                                byte[] bytes = ms.ToArray();
+                                base64 = System.Convert.ToBase64String(bytes);
                             }
                         }
                         catch (System.Runtime.InteropServices.ExternalException)
@@ -125,8 +127,7 @@ class WmlToHtmlConverterHelper
                             return null;
                         }
 
-                        ImageFormat format = imageInfo.Bitmap.RawFormat;
-                        ImageCodecInfo codec = ImageCodecInfo.GetImageDecoders().First(c => c.FormatID == format.Guid);
+                        ImageCodecInfo codec = ImageCodecInfo.GetImageDecoders().First(c => c.FormatID == imageFormat.Guid);
                         string mimeType = codec.MimeType;
 
                         string imageSource = string.Format("data:{0};base64,{1}", mimeType, base64);

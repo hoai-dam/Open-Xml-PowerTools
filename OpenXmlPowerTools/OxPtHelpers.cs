@@ -404,11 +404,15 @@ AAsACwDBAgAAbCwAAAAA";
                             if (imageFormat == null)
                                 return null;
 
-                            string imageFileName = imageDirectoryName + "/image" +
-                                imageCounter.ToString() + "." + extension;
+                            string imageFileName = imageDirectoryName + "/image" + imageCounter.ToString() + "." + extension;
                             try
                             {
-                                imageInfo.Bitmap.Save(imageFileName, imageFormat);
+                                using (var fileStream = File.Create(imageFileName))
+                                using (var imageStream = imageInfo.Bitmap)
+                                {
+                                    imageStream.Seek(0, SeekOrigin.Begin);
+                                    imageStream.CopyTo(fileStream);
+                                }
                             }
                             catch (System.Runtime.InteropServices.ExternalException)
                             {

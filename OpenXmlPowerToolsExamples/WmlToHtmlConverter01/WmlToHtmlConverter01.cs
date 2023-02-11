@@ -34,7 +34,7 @@ class WmlToHtmlConverterHelper
          * This example loads each document into a byte array, then into a memory stream, so that the document can be opened for writing without
          * modifying the source document.
          */
-        foreach (var file in Directory.GetFiles("../../", "*.docx"))
+        foreach (var file in Directory.GetFiles("../../../", "*.docx"))
         {
             ConvertToHtml(file, tempDi.FullName);
         }
@@ -112,11 +112,15 @@ class WmlToHtmlConverterHelper
                         if (imageFormat == null)
                             return null;
 
-                        string imageFileName = imageDirectoryName + "/image" +
-                            imageCounter.ToString() + "." + extension;
+                        string imageFileName = imageDirectoryName + "/image" + imageCounter.ToString() + "." + extension;
                         try
                         {
-                            imageInfo.Bitmap.Save(imageFileName, imageFormat);
+                            using (var fileStream = File.Create(imageFileName))
+                            using (var imageStream = imageInfo.Bitmap)
+                            {
+                                imageStream.Seek(0, SeekOrigin.Begin);
+                                imageStream.CopyTo(fileStream);
+                            }
                         }
                         catch (System.Runtime.InteropServices.ExternalException)
                         {

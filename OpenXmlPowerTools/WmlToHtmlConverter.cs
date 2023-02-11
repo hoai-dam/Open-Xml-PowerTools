@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
@@ -120,7 +121,7 @@ namespace OpenXmlPowerTools
     [SuppressMessage("ReSharper", "UnusedMember.Global")]
     public class ImageInfo
     {
-        public Bitmap Bitmap;
+        public Stream Bitmap;
         public XAttribute ImgStyleAttribute;
         public string ContentType;
         public XElement DrawingElement;
@@ -3078,49 +3079,48 @@ namespace OpenXmlPowerTools
             if (!ImageContentTypes.Contains(contentType))
                 return null;
 
-            using (var partStream = imagePart.GetStream())
-            using (var bitmap = new Bitmap(partStream))
+            Stream partStream = imagePart.GetStream();
+                
+            if (extentCx != null && extentCy != null)
             {
-                if (extentCx != null && extentCy != null)
+                var imageInfo = new ImageInfo()
                 {
-                    var imageInfo = new ImageInfo()
-                    {
-                        Bitmap = bitmap,
-                        ImgStyleAttribute = new XAttribute("style",
-                            string.Format(NumberFormatInfo.InvariantInfo,
-                                "width: {0}in; height: {1}in",
-                                (float)extentCx / (float)ImageInfo.EmusPerInch,
-                                (float)extentCy / (float)ImageInfo.EmusPerInch)),
-                        ContentType = contentType,
-                        DrawingElement = element,
-                        AltText = altText,
-                    };
-                    var imgElement2 = imageHandler(imageInfo);
-                    if (hyperlinkUri != null)
-                    {
-                        return new XElement(XhtmlNoNamespace.a,
-                            new XAttribute(XhtmlNoNamespace.href, hyperlinkUri),
-                            imgElement2);
-                    }
-                    return imgElement2;
-                }
-
-                var imageInfo2 = new ImageInfo()
-                {
-                    Bitmap = bitmap,
+                    Bitmap = partStream,
+                    ImgStyleAttribute = new XAttribute("style",
+                        string.Format(NumberFormatInfo.InvariantInfo,
+                            "width: {0}in; height: {1}in",
+                            (float)extentCx / (float)ImageInfo.EmusPerInch,
+                            (float)extentCy / (float)ImageInfo.EmusPerInch)),
                     ContentType = contentType,
                     DrawingElement = element,
                     AltText = altText,
                 };
-                var imgElement = imageHandler(imageInfo2);
+                var imgElement2 = imageHandler(imageInfo);
                 if (hyperlinkUri != null)
                 {
                     return new XElement(XhtmlNoNamespace.a,
                         new XAttribute(XhtmlNoNamespace.href, hyperlinkUri),
-                        imgElement);
+                        imgElement2);
                 }
-                return imgElement;
+                return imgElement2;
             }
+
+            var imageInfo2 = new ImageInfo()
+            {
+                Bitmap = partStream,
+                ContentType = contentType,
+                DrawingElement = element,
+                AltText = altText,
+            };
+            var imgElement = imageHandler(imageInfo2);
+            if (hyperlinkUri != null)
+            {
+                return new XElement(XhtmlNoNamespace.a,
+                    new XAttribute(XhtmlNoNamespace.href, hyperlinkUri),
+                    imgElement);
+            }
+            return imgElement;
+            
         }
 
         private static XElement ProcessPictureOrObject(WordprocessingDocument wordDoc,
@@ -3141,44 +3141,27 @@ namespace OpenXmlPowerTools
                 if (!ImageContentTypes.Contains(contentType))
                     return null;
 
-                using (var partStream = imagePart.GetStream())
+                var partStream = imagePart.GetStream();
+                var imageInfo = new ImageInfo()
                 {
-                    try
-                    {
-                        using (var bitmap = new Bitmap(partStream))
-                        {
-                            var imageInfo = new ImageInfo()
-                            {
-                                Bitmap = bitmap,
-                                ContentType = contentType,
-                                DrawingElement = element
-                            };
+                    Bitmap = partStream,
+                    ContentType = contentType,
+                    DrawingElement = element
+                };
 
-                            var style = (string)element.Elements(VML.shape).Attributes("style").FirstOrDefault();
-                            if (style == null) return imageHandler(imageInfo);
+                var style = (string)element.Elements(VML.shape).Attributes("style").FirstOrDefault();
+                if (style == null) return imageHandler(imageInfo);
 
-                            var tokens = style.Split(';');
-                            var widthInPoints = WidthInPoints(tokens);
-                            var heightInPoints = HeightInPoints(tokens);
-                            if (widthInPoints != null && heightInPoints != null)
-                            {
-                                imageInfo.ImgStyleAttribute = new XAttribute("style",
-                                    string.Format(NumberFormatInfo.InvariantInfo,
-                                        "width: {0}pt; height: {1}pt", widthInPoints, heightInPoints));
-                            }
-                            return imageHandler(imageInfo);
-                        }
-                    }
-                    catch (OutOfMemoryException)
-                    {
-                        // the Bitmap class can throw OutOfMemoryException, which means the bitmap is messed up, so punt.
-                        return null;
-                    }
-                    catch (ArgumentException)
-                    {
-                        return null;
-                    }
+                var tokens = style.Split(';');
+                var widthInPoints = WidthInPoints(tokens);
+                var heightInPoints = HeightInPoints(tokens);
+                if (widthInPoints != null && heightInPoints != null)
+                {
+                    imageInfo.ImgStyleAttribute = new XAttribute("style",
+                        string.Format(NumberFormatInfo.InvariantInfo,
+                            "width: {0}pt; height: {1}pt", widthInPoints, heightInPoints));
                 }
+                return imageHandler(imageInfo);
             }
             catch (ArgumentOutOfRangeException)
             {
